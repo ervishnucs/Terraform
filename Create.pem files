@@ -1,0 +1,33 @@
+provider "aws" {
+  region = "us-east-1"
+}
+
+# Generate a new SSH private key
+resource "tls_private_key" "my_ssh_key" {
+  algorithm = "RSA"
+  rsa_bits  = 2048
+}
+
+# Save the private key locally
+resource "local_file" "private_key" {
+  content  = tls_private_key.my_ssh_key.private_key_pem
+  filename = "${path.module}/my-terraform-key.pem"
+  file_permission = "0600"
+}
+
+# Upload the generated public key to AWS as a Key Pair
+resource "aws_key_pair" "my_key" {
+  key_name   = "my-terraform-key"
+  public_key = tls_private_key.my_ssh_key.public_key_openssh
+}
+
+# Create an EC2 instance using the generated key
+resource "aws_instance" "ec2_instance" {
+  ami           = "ami-0c55b159cbfafe1f0"  # Replace with a valid AMI ID
+  instance_type = "t2.micro"
+  key_name      = aws_key_pair.my_key.key_name  # Attach the AWS key pair
+
+  tags = {
+    Name = "Terraform-EC2-With-Generated-Key"
+  }
+}
